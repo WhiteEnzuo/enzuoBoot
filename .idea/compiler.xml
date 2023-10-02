@@ -6,8 +6,11 @@
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
-        <module name="enzuo_ioc" />
+        <module name="EnzuoIOC" />
       </profile>
     </annotationProcessing>
+    <bytecodeTargetLevel>
+      <module name="enzuo_ioc" target="8" />
+    </bytecodeTargetLevel>
   </component>
 </project>
