@@ -13,7 +13,7 @@ import java.lang.annotation.Target;
  * @Date 2023/10/2 21:40
  * @Created by Enzuo
  */
-@Target({ElementType.FIELD,ElementType.TYPE})
+@Target({ElementType.FIELD,ElementType.TYPE,ElementType.METHOD,ElementType.PARAMETER})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Autowired {
     String value() default "";

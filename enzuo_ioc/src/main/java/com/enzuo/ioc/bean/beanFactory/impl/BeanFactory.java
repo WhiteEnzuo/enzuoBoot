@@ -3,14 +3,15 @@ package com.enzuo.ioc.bean.beanFactory.impl;
 import com.enzuo.ioc.bean.annotation.Autowired;
 import com.enzuo.ioc.bean.annotation.First;
 import com.enzuo.ioc.bean.beanFactory.AbstractBeanFactory;
-import com.enzuo.ioc.bean.beanFactory.AfterBeanFactory;
-import com.enzuo.ioc.bean.beanFactory.PostBeanFactory;
+import com.enzuo.ioc.bean.beanFactory.beanFactoryAspect.AfterBeanFactory;
+import com.enzuo.ioc.bean.beanFactory.beanAspect.BeanInitAspect;
+import com.enzuo.ioc.bean.beanFactory.beanFactoryAspect.PostBeanFactory;
 import com.enzuo.ioc.bean.beanInterface.BeanFunctionInterface;
+import com.enzuo.ioc.bean.expection.BeanException;
 import com.enzuo.ioc.bean.utils.ObjectUtils;
+import net.sf.cglib.proxy.Enhancer;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.*;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -115,7 +116,16 @@ public class BeanFactory extends AbstractBeanFactory {
                 Constructor<?> constructor = clazz.getDeclaredConstructor();
                 constructor.setAccessible(true);
 
-                bean = constructor.newInstance();
+                if (isNeedInitAspect(clazz)) {
+                    Enhancer enhancer = new Enhancer();
+                    enhancer.setSuperclass(clazz);
+                    enhancer.setCallback(new BeanInitAspect(this));
+                    bean = enhancer.create();
+                } else {
+                    bean = constructor.newInstance();
+
+                }
+
                 earlySingletonBeanClass.put(name, bean);
                 Field[] declaredFields = clazz.getDeclaredFields();
                 for (Field field : declaredFields) {
@@ -125,51 +135,49 @@ public class BeanFactory extends AbstractBeanFactory {
                     if (ObjectUtils.isNull(autowired)) {
                         continue;
                     }
-                    if (!(beanContextByClass.containsKey(type) || beanContext.containsKey(autowired.value()))) {
-                        if (earlySingletonBeanClass.containsKey(autowired.value())
-                                || earlySingletonBeanClass.containsKey(type.getSimpleName().toLowerCase())) {
-                            Object fieldBean = earlySingletonBeanClass.containsKey(autowired.value()) ?
-                                    earlySingletonBeanClass.get(autowired.value()) :
-                                    earlySingletonBeanClass.get(type.getSimpleName().toLowerCase());
-                            field.set(bean, fieldBean);
-                            continue;
-                        }
-                        if (beanFunctionContext.containsKey(autowired.value())
-                                || beanFunctionContext.containsKey(type.getSimpleName().toLowerCase())) {
-                            BeanFunctionInterface fieldBeanFunction = beanFunctionContext.containsKey(autowired.value()) ?
-                                    beanFunctionContext.get(autowired.value()) :
-                                    beanFunctionContext.get(type.getSimpleName().toLowerCase());
-                            Object fieldBean = fieldBeanFunction.getObject();
-                            field.setAccessible(true);
-                            field.set(bean, fieldBean);
-                            continue;
-                        }
-                        //全都失败了，说明代码有问题
-                        isSuccess.set(false);
-                        throw new RuntimeException("找不到" + field.getName() + "的Bean");
-                    }
-                    Object fieldBean = beanContextByClass.containsKey(type) ?
-                            beanContextByClass.get(type) :
-                            beanContext.get(autowired.value());
+                    Object fieldBean = makeBean(type, autowired);
                     field.setAccessible(true);
                     field.set(bean, fieldBean);
                 }
-                if (beanContext.containsKey(name)) {
-                    throw new RuntimeException("创建name为" + name + "的bean时候发现缓存已经存在了");
-                }
-                beanContext.put(name, bean);
-                if (isPutBeanContextByClass(bean)) {
-                    beanContextByClass.put(clazz, bean);
-                }
 
-            } catch (IllegalAccessException | InstantiationException | InvocationTargetException | NoSuchMethodException e) {
+
+                if (beanContext.containsKey(name)) {
+                    throw new BeanException("创建name为" + name + "的bean时候发现缓存已经存在了");
+                }
+                putBean(name,clazz, bean);
+
+
+            } catch (BeanException | IllegalAccessException | InstantiationException | InvocationTargetException | NoSuchMethodException e) {
                 e.printStackTrace();
                 isSuccess.set(false);
             }
             return bean;
         };
-        beanFunctionContext.put(name, beanFunctionInterface);
+        putBeanFunction(name, clazz, beanFunctionInterface);
         return isSuccess.get();
+    }
+
+    private Object makeBean(Class<?> type, Autowired autowired) throws BeanException {
+        if (!(beanContextByClass.containsKey(type) || beanContext.containsKey(autowired.value()))) {
+            if (earlySingletonBeanClass.containsKey(autowired.value())
+                    || earlySingletonBeanClass.containsKey(type.getSimpleName().toLowerCase())) {
+                return earlySingletonBeanClass.containsKey(autowired.value()) ?
+                        earlySingletonBeanClass.get(autowired.value()) :
+                        earlySingletonBeanClass.get(type.getSimpleName().toLowerCase());
+            }
+            if (beanFunctionContext.containsKey(autowired.value())
+                    || beanFunctionContext.containsKey(type.getSimpleName().toLowerCase())) {
+                BeanFunctionInterface fieldBeanFunction = beanFunctionContext.containsKey(autowired.value()) ?
+                        beanFunctionContext.get(autowired.value()) :
+                        beanFunctionContext.get(type.getSimpleName().toLowerCase());
+                return fieldBeanFunction.getObject();
+            }
+            //全都失败了，说明代码有问题
+            throw new BeanException("找不到" + type.getSimpleName() + "的Bean");
+        }
+        return beanContextByClass.containsKey(type) ?
+                beanContextByClass.get(type) :
+                beanContext.get(autowired.value());
     }
 
     @Override
@@ -221,10 +229,7 @@ public class BeanFactory extends AbstractBeanFactory {
     @Override
     public boolean registerSingletonBean(String beanName, Object bean) {
         String name = beanName.toLowerCase(Locale.ROOT);
-        beanContext.put(name, bean);
-        if (!beanContextByClass.containsKey(bean.getClass())) {
-            beanContextByClass.put(bean.getClass(), bean);
-        }
+        putBean(name,bean.getClass(), bean);
         if (beanListContextByClass.containsKey(bean.getClass())) {
             List<Object> beanList = beanListContextByClass.get(bean.getClass());
             beanList.add(bean);
@@ -262,6 +267,12 @@ public class BeanFactory extends AbstractBeanFactory {
     }
 
     @Override
+    public Object beanAspect(Object bean) {
+
+        return null;
+    }
+
+    @Override
     public boolean freezeBeanIoc() {
         return super.freezeBeanIoc();
     }
@@ -275,6 +286,48 @@ public class BeanFactory extends AbstractBeanFactory {
         Class<?> clazz = bean.getClass();
         First first = clazz.getAnnotation(First.class);
         return !beanContextByClass.containsKey(clazz) || ObjectUtils.isNotNull(first);
+    }
+
+    private boolean isNeedInitAspect(Class<?> clazz) {
+        for (Method declaredMethod : clazz.getDeclaredMethods()) {
+            Autowired methodAnnotation = declaredMethod.getAnnotation(Autowired.class);
+            if (ObjectUtils.isNotNull(methodAnnotation)) {
+                return true;
+            }
+            for (Parameter parameter : declaredMethod.getParameters()) {
+                Autowired parameterAnnotation = parameter.getAnnotation(Autowired.class);
+                if (ObjectUtils.isNotNull(parameterAnnotation)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private void putBean(String name,Class<?> clazz, Object bean) {
+        beanContext.put(name, bean);
+        if (isPutBeanContextByClass(bean)) {
+            beanContextByClass.put(clazz, bean);
+        }
+        First first = clazz.getAnnotation(First.class);
+        Class<?>[] interfaces = clazz.getInterfaces();
+        for (Class<?> interfaceClazz : interfaces) {
+            if (isPutBeanContextByClass(interfaceClazz) || ObjectUtils.isNotNull(first)) {
+                beanContextByClass.put(interfaceClazz, bean);
+            }
+        }
+    }
+
+    private void putBeanFunction(String name, Class<?> clazz, BeanFunctionInterface beanFunctionInterface) {
+        beanFunctionContext.put(name, beanFunctionInterface);
+        beanFunctionContextByClass.put(clazz, beanFunctionInterface);
+        First first = clazz.getAnnotation(First.class);
+        Class<?>[] interfaces = clazz.getInterfaces();
+        for (Class<?> interfaceClazz : interfaces) {
+            if (beanFunctionContextByClass.containsKey(interfaceClazz) || ObjectUtils.isNotNull(first)) {
+                beanFunctionContextByClass.put(interfaceClazz, beanFunctionInterface);
+            }
+        }
     }
 }
 

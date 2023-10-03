@@ -1,5 +1,8 @@
 package com.enzuo.ioc.bean.beanFactory;
 
+import com.enzuo.ioc.bean.beanFactory.beanFactoryAspect.AfterBeanFactory;
+import com.enzuo.ioc.bean.beanFactory.beanFactoryAspect.PostBeanFactory;
+
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.locks.Lock;
@@ -37,6 +40,8 @@ public abstract class AbstractBeanFactory {
     public abstract boolean isSingletonBean(String name);
 
     public abstract boolean isSingletonBean(Class<?> clazz);
+
+    public abstract Object beanAspect(Object bean);
 
 
     public boolean freezeBeanIoc() {

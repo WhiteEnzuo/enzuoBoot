@@ -1,4 +1,4 @@
-package com.enzuo.ioc.bean.beanFactory;
+package com.enzuo.ioc.bean.beanFactory.beanFactoryAspect;
 
 /**
  * @interfaceName postBeanFactory

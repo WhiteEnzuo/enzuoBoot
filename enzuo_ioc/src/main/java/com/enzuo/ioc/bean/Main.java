@@ -1,7 +1,6 @@
 package com.enzuo.ioc.bean;
 
 import com.enzuo.ioc.bean.annotation.Autowired;
-import com.enzuo.ioc.bean.annotation.Bean;
 import com.enzuo.ioc.bean.beanFactory.impl.BeanFactory;
 
 import java.util.ArrayList;
@@ -21,12 +20,23 @@ public class Main {
         beanFactory.registerBeanFunctionInterface("person1",Person1.class);
         beanFactory.initBeanFactory(new ArrayList<>(),new ArrayList<>());
         Person bean = beanFactory.getBean(Person.class);
+//        System.out.println()
+        bean.test(null);
+        bean.test1(null);
         System.out.println(bean.person1);
     }
 }
 class Person{
     @Autowired
     Person1 person1;
+    @Autowired
+    public void test1(BeanFactory beanFactory){
+        System.out.println(beanFactory);
+    }
+    public void test(@Autowired Person1 person1){
+        System.out.println(person1);
+    }
+
 }
 class Person1{
     @Autowired
