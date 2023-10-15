@@ -1,7 +1,12 @@
 package com.enzuo.ioc.bean;
 
 import com.enzuo.ioc.bean.annotation.Autowired;
+import com.enzuo.ioc.bean.annotation.Component;
+import com.enzuo.ioc.bean.annotation.aop.After;
+import com.enzuo.ioc.bean.annotation.aop.Aspect;
+import com.enzuo.ioc.bean.annotation.aop.Before;
 import com.enzuo.ioc.bean.beanFactory.impl.BeanFactory;
+import com.enzuo.ioc.bean.context.impl.RunApplicationContext;
 
 import java.util.ArrayList;
 
@@ -15,40 +20,36 @@ import java.util.ArrayList;
 
 public class Main {
     public static void main(String[] args) {
-        BeanFactory beanFactory = new BeanFactory();
-        beanFactory.registerBeanFunctionInterface("person",Person.class);
-        beanFactory.registerBeanFunctionInterface("person1",Person1.class);
-        beanFactory.initBeanFactory(new ArrayList<>(),new ArrayList<>());
-        Person bean = beanFactory.getBean(Person.class);
-//        System.out.println()
-        bean.test(null);
-        bean.test1(null);
-        System.out.println(bean.person1);
+        RunApplicationContext runApplicationContext =
+                new RunApplicationContext(Main.class);
+        System.out.println(
+                runApplicationContext
+                        .getBeanFactory()
+                        .getBeanName());
+//        Object bean = runApplicationContext.getBean("person");
+//        System.out.println(bean);
+        Person bean = runApplicationContext
+                .getBean(Person.class);
+        System.out.println(runApplicationContext.getBean(Test.class));
+
+        bean.test();
+
     }
 }
-class Person{
-    @Autowired
-    Person1 person1;
-    @Autowired
-    public void test1(BeanFactory beanFactory){
-        System.out.println(beanFactory);
-    }
-    public void test(@Autowired Person1 person1){
-        System.out.println(person1);
-    }
 
+@Component
+class Person {
+    @Autowired Test test;
+    public void test() {
+        System.out.println(test);
+    }
 }
-class Person1{
-    @Autowired
-    Person person;
-    @Autowired
-    BeanFactory beanFactory;
 
-    @Override
-    public String toString() {
-        return "Person1{" +
-                "person=" + person +
-                ", beanFactory=" + beanFactory +
-                '}';
+@Aspect
+@Component
+class Test {
+        @Before("com.enzuo.ioc.bean.Person")
+    public void after() {
+        System.out.println(12);
     }
 }

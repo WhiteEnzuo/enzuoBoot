@@ -1,12 +1,18 @@
 package com.enzuo.ioc.bean.beanFactory.impl;
 
 import com.enzuo.ioc.bean.annotation.Autowired;
+import com.enzuo.ioc.bean.annotation.Component;
 import com.enzuo.ioc.bean.annotation.First;
+import com.enzuo.ioc.bean.annotation.aop.After;
+import com.enzuo.ioc.bean.annotation.aop.AfterThrowing;
+import com.enzuo.ioc.bean.annotation.aop.Before;
 import com.enzuo.ioc.bean.beanFactory.AbstractBeanFactory;
+import com.enzuo.ioc.bean.beanFactory.beanAspect.BeanAspect;
 import com.enzuo.ioc.bean.beanFactory.beanFactoryAspect.AfterBeanFactory;
 import com.enzuo.ioc.bean.beanFactory.beanAspect.BeanInitAspect;
 import com.enzuo.ioc.bean.beanFactory.beanFactoryAspect.PostBeanFactory;
 import com.enzuo.ioc.bean.beanInterface.BeanFunctionInterface;
+import com.enzuo.ioc.bean.enums.BeanTypeEnum;
 import com.enzuo.ioc.bean.expection.BeanException;
 import com.enzuo.ioc.bean.utils.ObjectUtils;
 import net.sf.cglib.proxy.Enhancer;
@@ -24,20 +30,24 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 
 public class BeanFactory extends AbstractBeanFactory {
-    //一级缓存，存放Bean的生产方法
+    //AOP的缓存
+    private final Map<String, Map<Object, List<Method>>> methodMap = new HashMap<>();
+
+    // 一级缓存，存放Bean的生产方法
     private final Map<String, BeanFunctionInterface> beanFunctionContext = new HashMap<>();
     private final Map<Class<?>, BeanFunctionInterface> beanFunctionContextByClass = new HashMap<>();
 
-    //二级缓存，存放未初始化的Bean
+    // 二级缓存，存放未初始化的Bean
     private final Map<String, Object> earlySingletonBeanClass = new HashMap<>();
 
-    //三级缓存，存放完整的Bean
+    // 三级缓存，存放完整的Bean
     private final Map<String, Object> beanContext = new HashMap<>();
     private final Map<Class<?>, Object> beanContextByClass = new HashMap<>();
     private final Map<Class<?>, List<Object>> beanListContextByClass = new HashMap<>();
     private final Map<Class<?>, Map<String, Object>> beanMapContextByClass = new HashMap<>();
 
     public BeanFactory() {
+
         registerSingletonBean("beanFactory", this);
     }
 
@@ -88,6 +98,11 @@ public class BeanFactory extends AbstractBeanFactory {
     }
 
     @Override
+    public Iterable<String> getBeanName() {
+        return beanFunctionContext.keySet();
+    }
+
+    @Override
     public <T> Map<String, T> getBeanMap(Class<T> clazz) {
         if (beanMapContextByClass.containsKey(clazz)) {
             return (Map<String, T>) beanMapContextByClass.get(clazz);
@@ -108,26 +123,29 @@ public class BeanFactory extends AbstractBeanFactory {
         String name = beanName.toLowerCase(Locale.ROOT);
         AtomicReference<Boolean> isSuccess = new AtomicReference<>(true);
         BeanFunctionInterface beanFunctionInterface = () -> {
+            Class<?> newClazz = clazz;
             Object bean = null;
             try {
                 if (isSingletonBean(name)) {
                     return beanContext.get(name);
                 }
-                Constructor<?> constructor = clazz.getDeclaredConstructor();
-                constructor.setAccessible(true);
 
-                if (isNeedInitAspect(clazz)) {
+                if (isNeedInitAspect(newClazz)) {
                     Enhancer enhancer = new Enhancer();
-                    enhancer.setSuperclass(clazz);
+                    enhancer.setSuperclass(newClazz);
                     enhancer.setCallback(new BeanInitAspect(this));
                     bean = enhancer.create();
                 } else {
+                    Constructor<?> constructor = newClazz.getDeclaredConstructor();
+                    constructor.setAccessible(true);
                     bean = constructor.newInstance();
-
                 }
+                Component annotation = newClazz.getAnnotation(Component.class);
 
-                earlySingletonBeanClass.put(name, bean);
-                Field[] declaredFields = clazz.getDeclaredFields();
+                if (ObjectUtils.isNull(annotation) || annotation.type().equals(BeanTypeEnum.SINGLETON_BEAN)) {
+                    earlySingletonBeanClass.put(name, bean);
+                }
+                Field[] declaredFields = newClazz.getDeclaredFields();
                 for (Field field : declaredFields) {
                     Class<?> type = field.getType();
                     field.setAccessible(true);
@@ -135,16 +153,29 @@ public class BeanFactory extends AbstractBeanFactory {
                     if (ObjectUtils.isNull(autowired)) {
                         continue;
                     }
+                    //Bean A -> Bean B
+                    //Bean B -> Bean A
                     Object fieldBean = makeBean(type, autowired);
                     field.setAccessible(true);
                     field.set(bean, fieldBean);
+                }
+
+                if (isNeedAspect(clazz)) {
+                    Enhancer enhancer = new Enhancer();
+                    enhancer.setSuperclass(clazz);
+                    enhancer.setCallback(new BeanAspect(methodMap, clazz,
+                            this, bean));
+                    bean = enhancer.create();
                 }
 
 
                 if (beanContext.containsKey(name)) {
                     throw new BeanException("创建name为" + name + "的bean时候发现缓存已经存在了");
                 }
-                putBean(name,clazz, bean);
+                if (ObjectUtils.isNull(annotation) || annotation.type().equals(BeanTypeEnum.SINGLETON_BEAN)) {
+
+                    putBean(name, clazz, bean);
+                }
 
 
             } catch (BeanException | IllegalAccessException | InstantiationException | InvocationTargetException | NoSuchMethodException e) {
@@ -229,7 +260,7 @@ public class BeanFactory extends AbstractBeanFactory {
     @Override
     public boolean registerSingletonBean(String beanName, Object bean) {
         String name = beanName.toLowerCase(Locale.ROOT);
-        putBean(name,bean.getClass(), bean);
+        putBean(name, bean.getClass(), bean);
         if (beanListContextByClass.containsKey(bean.getClass())) {
             List<Object> beanList = beanListContextByClass.get(bean.getClass());
             beanList.add(bean);
@@ -267,9 +298,85 @@ public class BeanFactory extends AbstractBeanFactory {
     }
 
     @Override
-    public Object beanAspect(Object bean) {
+    public boolean beanAspect(Object object, Class<?> aspectClazz) {
+        try {
+            Method[] declaredMethods = aspectClazz.getDeclaredMethods();
+            for (Method declaredMethod : declaredMethods) {
+                After after = declaredMethod.getAnnotation(After.class);
+                Before before = declaredMethod.getAnnotation(Before.class);
+                AfterThrowing afterThrowing = declaredMethod.getAnnotation(AfterThrowing.class);
+                if (ObjectUtils.isNotNull(after)) {
+                    if (!ObjectUtils.isStringEmpty(after.value())) {
+                        String value = after.value();
+                        if (methodMap.containsKey(value)) {
+                            if (methodMap.get(value).containsKey(object)) {
+                                methodMap.get(value).get(object).add(declaredMethod);
+                            } else {
+                                List<Method> list = new ArrayList<>();
+                                list.add(declaredMethod);
+                                methodMap.get(value).put(object, list);
+                            }
+//                        methodMap.get(value).put(object,declaredMethod);
+                        } else {
+                            ArrayList<Method> list = new ArrayList<>();
+                            list.add(declaredMethod);
+                            HashMap<Object, List<Method>> map = new HashMap<>();
+                            map.put(object, list);
+                            methodMap.put(value, map);
+                        }
+                    }
 
-        return null;
+                }
+                if (ObjectUtils.isNotNull(before)) {
+                    if (!ObjectUtils.isStringEmpty(before.value())) {
+                        String value = before.value();
+                        if (methodMap.containsKey(value)) {
+                            if (methodMap.get(value).containsKey(object)) {
+                                methodMap.get(value).get(object).add(declaredMethod);
+                            } else {
+                                List<Method> list = new ArrayList<>();
+                                list.add(declaredMethod);
+                                methodMap.get(value).put(object, list);
+                            }
+//                        methodMap.get(value).put(object,declaredMethod);
+                        } else {
+                            ArrayList<Method> list = new ArrayList<>();
+                            list.add(declaredMethod);
+                            HashMap<Object, List<Method>> map = new HashMap<>();
+                            map.put(object, list);
+                            methodMap.put(value, map);
+                        }
+                    }
+                }
+                if (ObjectUtils.isNotNull(afterThrowing)) {
+                    if (!ObjectUtils.isStringEmpty(afterThrowing.value())) {
+                        String value = afterThrowing.value();
+                        if (methodMap.containsKey(value)) {
+                            if (methodMap.get(value).containsKey(object)) {
+                                methodMap.get(value).get(object).add(declaredMethod);
+                            } else {
+                                List<Method> list = new ArrayList<>();
+                                list.add(declaredMethod);
+                                methodMap.get(value).put(object, list);
+                            }
+//                        methodMap.get(value).put(object,declaredMethod);
+                        } else {
+                            ArrayList<Method> list = new ArrayList<>();
+                            list.add(declaredMethod);
+                            HashMap<Object, List<Method>> map = new HashMap<>();
+                            map.put(object, list);
+                            methodMap.put(value, map);
+                        }
+                    }
+
+                }
+
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return true;
     }
 
     @Override
@@ -304,7 +411,19 @@ public class BeanFactory extends AbstractBeanFactory {
         return false;
     }
 
-    private void putBean(String name,Class<?> clazz, Object bean) {
+    private boolean isNeedAspect(Class<?> clazz) {
+        Set<String> listString = methodMap.keySet();
+        String clazzName = clazz.getName();
+        for (String name : listString) {
+            if (clazzName.contains(name)) {
+                return true;
+            }
+        }
+        return false;
+
+    }
+
+    private void putBean(String name, Class<?> clazz, Object bean) {
         beanContext.put(name, bean);
         if (isPutBeanContextByClass(bean)) {
             beanContextByClass.put(clazz, bean);

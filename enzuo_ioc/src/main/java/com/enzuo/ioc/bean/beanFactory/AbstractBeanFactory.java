@@ -25,6 +25,8 @@ public abstract class AbstractBeanFactory {
 
     public abstract <T> T getBean(Class<T> clazz);
 
+    public abstract Iterable<String> getBeanName();
+
     public abstract <T> Map<String, T> getBeanMap(Class<T> clazz);
 
     public abstract <T> List<T> getBeanList(Class<T> clazz);
@@ -41,7 +43,7 @@ public abstract class AbstractBeanFactory {
 
     public abstract boolean isSingletonBean(Class<?> clazz);
 
-    public abstract Object beanAspect(Object bean);
+    public abstract boolean beanAspect(Object object,Class<?> aspectClazz);
 
 
     public boolean freezeBeanIoc() {
