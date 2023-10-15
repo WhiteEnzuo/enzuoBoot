@@ -1,20 +1,14 @@
 package com.enzuo.ioc.bean.beanFactory.beanAspect;
 
-import com.enzuo.ioc.bean.annotation.aop.After;
-import com.enzuo.ioc.bean.annotation.aop.AfterThrowing;
-import com.enzuo.ioc.bean.annotation.aop.Before;
-import com.enzuo.ioc.bean.beanFactory.AbstractBeanFactory;
 import com.enzuo.ioc.bean.utils.ObjectUtils;
+import com.sun.xml.internal.ws.api.ha.HaInfo;
 import net.sf.cglib.proxy.MethodInterceptor;
 import net.sf.cglib.proxy.MethodProxy;
 
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
+import java.lang.reflect.Parameter;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * @Classname BeanAspect
@@ -25,114 +19,52 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 
 public class BeanAspect implements MethodInterceptor {
-    private Map<String, Map<Object, List<Method>>> map;
-    private String className;
-    private Class<?> clazz;
-    private AbstractBeanFactory beanFactory;
-    private Object bean;
+    private Map<Method, String> map;
+    private Method beforeMethod;
+    private Object[] beforeMethodParameters;
+    private Object beforeObject;
+    private Method afterMethod;
+    private Object[] afterMethodParameters;
+    private Object afterObject;
 
-    public BeanAspect(
-            Map<String, Map<Object,
-                    List<Method>>> map,
-            Class<?> clazz,
-            AbstractBeanFactory beanFactory,
-            Object bean
-    ) {
+    public BeanAspect(Map<Method, String> map,
+                      Method beforeMethod,
+                      Object[] beforeMethodParameters,
+                      Object beforeObject, Method afterMethod,
+                      Object[] afterMethodParameters,
+                      Object afterObject) {
         this.map = map;
-        this.className = clazz.getName();
-        this.clazz = clazz;
-        this.beanFactory = beanFactory;
-        this.bean = bean;
+        this.beforeMethod = beforeMethod;
+        this.beforeMethodParameters = beforeMethodParameters;
+        this.beforeObject = beforeObject;
+        this.afterMethod = afterMethod;
+        this.afterMethodParameters = afterMethodParameters;
+        this.afterObject = afterObject;
     }
 
 
     @Override
-    public Object intercept(Object o, Method method, Object[] objects, MethodProxy methodProxy) {
+    public Object intercept(Object o, Method method, Object[] objects, MethodProxy methodProxy)
+            throws Throwable {
         if (method.getName().equals("toString")) {
-            return this.bean.getClass().getSimpleName();
+            return o.getClass().getSimpleName();
         }
-        Map<Object, List<Method>> errorMap = new HashMap<>();
-        map.forEach((key, value) -> {
-            if (className.contains(key)) {
-                value.forEach((object, aspectMethods) -> {
-                    aspectMethods.forEach((aspectMethod -> {
-                        AfterThrowing afterThrowing = aspectMethod.getAnnotation(AfterThrowing.class);
-                        if (ObjectUtils.isNotNull(afterThrowing)) {
-                            if (errorMap.containsKey(key)) {
-                                errorMap.get(key).add(aspectMethod);
-                            } else {
-                                ArrayList<Method> list = new ArrayList<>();
-                                list.add(aspectMethod);
-                                errorMap.put(key, list);
 
-                            }
-                        }
-                    }));
+        if (map.containsKey(method)) {
+            if (map.get(method).equals("before")) {
+                if (ObjectUtils.isNotNull(beforeObject) || ObjectUtils.isNotNull(beforeMethodParameters)) {
+                    beforeMethod.invoke(beforeObject, beforeMethodParameters);
+                }
+                return methodProxy.invokeSuper(o, objects);
+            } else {
+                Object invoke = methodProxy.invokeSuper(o, objects);
+                if (ObjectUtils.isNotNull(afterObject) || ObjectUtils.isNotNull(afterMethod)) {
+                    afterMethod.invoke(afterObject, afterMethodParameters);
+                }
+                return invoke;
 
-                });
             }
-        });
-        AtomicReference<Object> returnObject = new AtomicReference<>(null);
-        map.forEach((key, value) -> {
-            if (className.contains(key)) {
-                value.forEach((object, aspectMethods) -> {
-                    aspectMethods.forEach((aspectMethod -> {
-                        aspectMethod.setAccessible(true);
-                        After after = aspectMethod.getAnnotation(After.class);
-                        Before before = aspectMethod.getAnnotation(Before.class);
-
-                        try {
-                            if (ObjectUtils.isNotNull(before)) {
-                                Class<?>[] parameterTypes = aspectMethod.getParameterTypes();
-                                List<Object> param = new ArrayList<>();
-                                for (int i = 0; i < parameterTypes.length; i++) {
-                                    Object bean = beanFactory.getBean(parameterTypes[i]);
-                                    param.add(i, bean);
-                                }
-                                aspectMethod.invoke(object, param.toArray());
-
-                            }
-                            returnObject.set(methodProxy.invoke(this.bean, objects));
-                            if (ObjectUtils.isNotNull(after)) {
-                                Class<?>[] parameterTypes = aspectMethod.getParameterTypes();
-                                List<Object> param = new ArrayList<>();
-                                for (int i = 0; i < parameterTypes.length; i++) {
-                                    Object bean = beanFactory.getBean(parameterTypes[i]);
-                                    param.add(i, bean);
-                                }
-                                try {
-                                    aspectMethod.invoke(object, param.toArray());
-                                } catch (IllegalAccessException | InvocationTargetException e) {
-                                    e.printStackTrace();
-                                }
-                            }
-                        } catch (Throwable e) {
-                            e.printStackTrace();
-
-                            errorMap.forEach((o1, errorMethods) -> {
-                                try {
-                                    for (Method errorMethod : errorMethods) {
-                                        if (errorMethod.getParameterTypes().length > 0) {
-                                            errorMethod.invoke(o1, e);
-                                        } else {
-                                            errorMethod.invoke(o1);
-                                        }
-                                    }
-                                } catch (Exception exception) {
-                                    exception.printStackTrace();
-                                    System.exit(0);
-                                }
-                            });
-
-
-                        }
-
-                    }));
-
-                });
-            }
-        });
-
-        return returnObject.get();
+        }
+        return methodProxy.invokeSuper(o, objects);
     }
 }

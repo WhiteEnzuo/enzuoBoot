@@ -30,7 +30,6 @@ public class BeanInitAspect implements MethodInterceptor {
     public Object intercept(Object o, Method method, Object[] objects, MethodProxy methodProxy) throws Throwable {
         if (method.getName().equals("toString")) {
             return o.getClass().getSimpleName();
-
         }
         Autowired methodAutowired = method.getAnnotation(Autowired.class);
         if (ObjectUtils.isNotNull(methodAutowired)) {
@@ -49,20 +48,18 @@ public class BeanInitAspect implements MethodInterceptor {
                 Parameter parameter = parameters[i];
                 Autowired parameterAutowired = parameter.getAnnotation(Autowired.class);
                 if (ObjectUtils.isNull(parameterAutowired)) {
-                    args.add(i, objects[i]);
+                    args.add(i,objects[i]);
                     continue;
                 }
                 if (parameterAutowired.value().equals("")) {
                     Object bean = beanFactory.getBean(parameter.getType());
-                    args.add(i, bean);
+                    args.add(i,bean);
                     continue;
                 }
                 Object bean = beanFactory.getBean(parameterAutowired.value());
-                args.add(i, bean);
+                args.add(i,bean);
             }
-
             return methodProxy.invokeSuper(o, args.toArray());
-
         }
     }
 }

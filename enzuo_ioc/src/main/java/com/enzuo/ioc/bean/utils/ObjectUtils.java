@@ -19,8 +19,6 @@ public class ObjectUtils {
     public static boolean isNotNull(Object obj) {
         return null != obj && !obj.equals((Object)null);
     }
-    public static boolean isStringEmpty(Object obj) {
-        return obj==null || obj.equals((Object)null) || obj.equals("");
-    }
+
 
 }
