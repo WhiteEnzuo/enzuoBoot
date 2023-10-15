@@ -28,6 +28,7 @@ import java.util.*;
 
 public class RunApplicationContext extends ApplicationContext {
     private Class<?> clazz;
+    private String [] args;
     private String className;
     private String clazzPath;
     private AbstractBeanFactory beanFactory;
@@ -37,12 +38,14 @@ public class RunApplicationContext extends ApplicationContext {
         beanFactory = this.getBeanFactory();
     }
 
-    public RunApplicationContext(Class<?> clazz) {
+    public RunApplicationContext(Class<?> clazz,String [] args) {
+
         this();
         this.clazz = clazz;
         this.className = clazz.getName();
         this.getBeanFactory().registerSingletonBean(RunApplicationContext.class.getSimpleName(), this);
         this.init(new ArrayList<>(), new ArrayList<>());
+        this.args=args;
     }
 
 
@@ -107,6 +110,16 @@ public class RunApplicationContext extends ApplicationContext {
         initBean(new File(path));
         initBeanByConfiguation(new File(path));
         this.beanFactory.initBeanFactory(postBeanFactories, afterBeanFactories);
+    }
+
+    @Override
+    public Class<?> getClazz() {
+        return clazz;
+    }
+
+    @Override
+    public String[] getArgs() {
+        return args;
     }
 
     private void initBean(File file) {

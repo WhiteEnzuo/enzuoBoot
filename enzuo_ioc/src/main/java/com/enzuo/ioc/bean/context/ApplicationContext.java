@@ -43,5 +43,7 @@ public abstract class ApplicationContext {
     }
 
     public abstract void init(List<PostBeanFactory> postBeanFactories, List<AfterBeanFactory> afterBeanFactories);
+    public abstract Class<?> getClazz();
 
+    public abstract String[] getArgs();
 }

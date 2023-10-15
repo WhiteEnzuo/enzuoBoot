@@ -54,7 +54,7 @@ public class HttpServerBusinessHandler extends ChannelInboundHandlerAdapter {
                         continue;
                     }
                     String value = webServlet.value();
-                    if (value.equals("")) {
+                    if (value.isEmpty()) {
                         todoHttp(request, response, httpServlet);
                         continue;
                     }

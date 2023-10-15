@@ -12,8 +12,5 @@ import com.enzuo.web.http.server.HttpServerSocket;
  */
 
 public class Main {
-    public static void main(String[] args) {
-        HttpServerSocket httpServerSocket = new HttpServerSocket(8080);
-        new ServletApplicationRun(Main.class, args, httpServerSocket).start();
-    }
+
 }
