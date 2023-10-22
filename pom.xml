@@ -11,6 +11,9 @@
     <modules>
         <module>enzuo_ioc</module>
         <module>enzuo_mvc</module>
+        <module>enzuo_orm</module>
+        <module>enzuo_rpc</module>
+        <module>enzuo_register</module>
     </modules>
 
     <properties>

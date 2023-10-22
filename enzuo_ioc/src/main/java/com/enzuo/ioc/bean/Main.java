@@ -1,14 +1,14 @@
 package com.enzuo.ioc.bean;
 
-import com.enzuo.ioc.bean.annotation.Autowired;
-import com.enzuo.ioc.bean.annotation.Component;
-import com.enzuo.ioc.bean.annotation.aop.After;
+import com.enzuo.ioc.bean.annotation.*;
 import com.enzuo.ioc.bean.annotation.aop.Aspect;
 import com.enzuo.ioc.bean.annotation.aop.Before;
-import com.enzuo.ioc.bean.beanFactory.impl.BeanFactory;
+import com.enzuo.ioc.bean.application.BootApplication;
 import com.enzuo.ioc.bean.context.impl.RunApplicationContext;
+import com.enzuo.ioc.bean.utils.AnnotationUtils;
 
-import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 
 /**
  * @Classname Main
@@ -17,39 +17,24 @@ import java.util.ArrayList;
  * @Date 2023/10/2 22:52
  * @Created by Enzuo
  */
-
+//@EnableTest
+@Application
 public class Main {
     public static void main(String[] args) {
-        RunApplicationContext runApplicationContext =
-                new RunApplicationContext(Main.class,args);
-        System.out.println(
-                runApplicationContext
-                        .getBeanFactory()
-                        .getBeanName());
-//        Object bean = runApplicationContext.getBean("person");
-//        System.out.println(bean);
-        Person bean = runApplicationContext
-                .getBean(Person.class);
-        System.out.println(runApplicationContext.getBean(Test.class));
+        BootApplication.run(Main.class,args);
 
-        bean.test();
-
+//        System.out.println(
+//                runApplicationContext
+//                        .getBeanFactory()
+//                        .getBeanName());
+////        Object bean = runApplicationContext.getBean("person");
+////        System.out.println(bean);
+//        Person bean = runApplicationContext
+//                .getBean(Person.class);
+//        System.out.println(runApplicationContext.getBean(Test.class));
+//
+//        bean.test();
     }
 }
 
-@Component
-class Person {
-    @Autowired Test test;
-    public void test() {
-        System.out.println(test);
-    }
-}
 
-@Aspect
-@Component
-class Test {
-        @Before("com.enzuo.ioc.bean.Person")
-    public void after() {
-        System.out.println(12);
-    }
-}

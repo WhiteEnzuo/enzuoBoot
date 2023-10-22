@@ -44,6 +44,8 @@ public abstract class ApplicationContext {
 
     public abstract void init(List<PostBeanFactory> postBeanFactories, List<AfterBeanFactory> afterBeanFactories);
     public abstract Class<?> getClazz();
+    public abstract void addImportClass(Class<?> clazz);
+    public abstract void addExecuteImportClass(Class<?> clazz);
 
     public abstract String[] getArgs();
 }

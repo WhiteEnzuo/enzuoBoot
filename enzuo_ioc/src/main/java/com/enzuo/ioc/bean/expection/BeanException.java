@@ -8,7 +8,7 @@ package com.enzuo.ioc.bean.expection;
  * @Created by Enzuo
  */
 
-public class BeanException extends Exception {
+public class BeanException extends RuntimeException {
     public BeanException(String msg) {
         super(msg);
     }
