@@ -11,13 +11,15 @@ import com.enzuo.ioc.bean.expection.BeanException;
 import com.enzuo.ioc.bean.utils.AnnotationUtils;
 import com.enzuo.ioc.bean.utils.ObjectUtils;
 import lombok.extern.slf4j.Slf4j;
+import org.yaml.snakeyaml.Yaml;
 
 import java.io.File;
+import java.io.InputStream;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.sql.Array;
+import java.lang.reflect.Parameter;
 import java.util.*;
 
 /**
@@ -38,6 +40,8 @@ public class RunApplicationContext extends ApplicationContext {
     private AbstractBeanFactory beanFactory;
     private static String fileSeparator = File.separator;
     private List<String> classNames = new ArrayList<>();
+    private Map<String, Object> configMap;
+    private final String configFile = "/application.yaml";
 
     private RunApplicationContext() {
         super();
@@ -117,6 +121,7 @@ public class RunApplicationContext extends ApplicationContext {
         }
         this.clazzPath = sb.toString();
         String path = Objects.requireNonNull(clazz.getResource("")).getPath();
+        initConfig();
         initBean(new File(path));
         initBeanByConfiguration();
         initImport();
@@ -128,18 +133,29 @@ public class RunApplicationContext extends ApplicationContext {
         return clazz;
     }
 
+    private void initConfig() {
+        Yaml yaml = new Yaml();
+        try {
+            InputStream resourceAsStream = this.clazz.getResourceAsStream(configFile);
+            this.configMap = (Map<String, Object>) yaml.loadAs(resourceAsStream, Map.class);
+        } catch (Exception e) {
+            this.configMap = new HashMap<>();
+        }
+
+    }
+
     @Override
     public void addImportClass(Class<?> clazz) {
-      if(ObjectUtils.isNull(clazz)||ObjectUtils.isNull(this.importClazz)){
-          return;
-      }
+        if (ObjectUtils.isNull(clazz) || ObjectUtils.isNull(this.importClazz)) {
+            return;
+        }
         this.importClazz.add(clazz);
 
     }
 
     @Override
     public void addExecuteImportClass(Class<?> clazz) {
-        if(ObjectUtils.isNull(clazz)||ObjectUtils.isNull(this.execute)){
+        if (ObjectUtils.isNull(clazz) || ObjectUtils.isNull(this.execute)) {
             return;
         }
         this.execute.add(clazz);
@@ -149,6 +165,33 @@ public class RunApplicationContext extends ApplicationContext {
     @Override
     public String[] getArgs() {
         return args;
+    }
+
+    @Override
+    public Object getConfig(String key) {
+        if (ObjectUtils.isNull(this.configMap)) {
+            this.configMap = new HashMap<>();
+            return null;
+        }
+        String[] split = key.split("\\.");
+        Object o = this.configMap.get(split[0]);
+        for (int i = 1; i < split.length; i++) {
+            if(o instanceof Map){
+                o=((Map<?, ?>) o).get(split[i]);
+            }else {
+                return null;
+            }
+        }
+        return o;
+    }
+
+    @Override
+    public void setConfig(String key, Object value) {
+        if (ObjectUtils.isNull(this.configMap)) {
+            this.configMap = new HashMap<>();
+            return;
+        }
+        this.configMap.put(key, value);
     }
 
     private void initBean(File file) {
@@ -166,10 +209,15 @@ public class RunApplicationContext extends ApplicationContext {
                             .substring(pathFile.getPath().indexOf(this.clazzPath))
                             .replace(".class", "")
                             .replace(fileSeparator, ".");
-                    classNames.add(className);
+
+
                     try {
 
                         Class<?> objClazz = Class.forName(className);
+                        if(objClazz.isAnnotation()){
+                            continue;
+                        }
+                        classNames.add(className);
                         if (!isComponent(objClazz)) {
                             continue;
                         }
@@ -181,7 +229,7 @@ public class RunApplicationContext extends ApplicationContext {
                         }
                         Component component = objClazz.getAnnotation(Component.class);
 
-                        if (ObjectUtils.isStringEmpty(component.value())) {
+                        if (ObjectUtils.isNull(component)||ObjectUtils.isStringEmpty(component.value())) {
                             beanFactory.registerBeanFunctionInterface(objClazz.getSimpleName(), objClazz);
                         } else {
                             beanFactory.registerBeanFunctionInterface(component.value(), objClazz);
@@ -286,17 +334,17 @@ public class RunApplicationContext extends ApplicationContext {
             Method[] declaredMethods = clazz.getDeclaredMethods();
             for (Method declaredMethod : declaredMethods) {
                 declaredMethod.setAccessible(true);
-                Class<?>[] parameterTypes = declaredMethod.getParameterTypes();
+                Parameter[] parameters = declaredMethod.getParameters();
                 Object invoke;
-                if (parameterTypes.length == 0) {
+                if (parameters.length == 0) {
                     invoke = declaredMethod.invoke(obj);
                 } else {
-                    ArrayList<Object> parameters = new ArrayList<>();
-                    for (Class<?> parameterType : parameterTypes) {
-                        Object bean = beanFactory.getBean(parameterType);
-                        parameters.add(bean);
+                    ArrayList<Object> parameterObjects = new ArrayList<>();
+                    for (Parameter parameter : parameters) {
+                        Object bean = beanFactory.getBean(parameter.getName());
+                        parameterObjects.add(bean);
                     }
-                    invoke = declaredMethod.invoke(obj, parameters.toArray());
+                    invoke = declaredMethod.invoke(obj, parameterObjects.toArray());
                 }
                 if (ObjectUtils.isNotNull(invoke)) {
                     beanFactory.registerSingletonBean(invoke.getClass().getSimpleName(), invoke);

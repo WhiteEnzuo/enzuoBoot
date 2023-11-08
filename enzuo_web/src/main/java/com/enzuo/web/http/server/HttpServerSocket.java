@@ -22,11 +22,18 @@ import org.apache.http.impl.bootstrap.HttpServer;
 @Slf4j
 public class HttpServerSocket{
     private int port;
+    private String address;
     private HttpServerSocket(){}
+    public HttpServerSocket(String address,int port){
+        this.address=address;
+        this.port=port;
+    }
     public HttpServerSocket(int port){
+        this.address="0.0.0.0";
         this.port=port;
     }
     public void start(){
+        //线程！
         EventLoopGroup boss = new NioEventLoopGroup(1);
         EventLoopGroup worker = new NioEventLoopGroup();
         try {
@@ -34,11 +41,11 @@ public class HttpServerSocket{
             serverBootstrap.group(boss, worker)
                     .channel(NioServerSocketChannel.class)
                     .childHandler(new HttpHandler());
-            ChannelFuture channelFuture = serverBootstrap.bind(port).sync();
+            ChannelFuture channelFuture = serverBootstrap.bind(address,port).sync();
             log.info("服务器已开启......");
             channelFuture.channel().closeFuture().sync();
         } catch (InterruptedException e) {
-            e.printStackTrace();
+            log.error(e.getMessage());
         } finally {
             boss.shutdownGracefully();
             worker.shutdownGracefully();

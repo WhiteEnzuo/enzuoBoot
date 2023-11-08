@@ -1,7 +1,9 @@
 package com.enzuo.mvc;
 
-import com.enzuo.web.http.application.ServletApplicationRun;
-import com.enzuo.web.http.server.HttpServerSocket;
+import com.enzuo.ioc.bean.annotation.Application;
+import com.enzuo.ioc.bean.context.ApplicationContext;
+import com.enzuo.mvc.run.BootApplication;
+import com.enzuo.web.http.handler.HttpContext;
 
 /**
  * @Classname Main
@@ -10,9 +12,11 @@ import com.enzuo.web.http.server.HttpServerSocket;
  * @Date 2023/10/15 16:42
  * @Created by Enzuo
  */
+
+@Application
 public class Main {
     public static void main(String[] args) {
-
+        ApplicationContext run = BootApplication.run(Main.class, args);
 
     }
 

@@ -1,6 +1,7 @@
 package com.enzuo.orm.proxy;
 
 import com.enzuo.orm.makeSql.Wrapper;
+import com.enzuo.orm.util.Page;
 
 import java.io.Serializable;
 import java.util.List;
@@ -16,6 +17,8 @@ public interface BaseMapper<T> {
     List<T> select(Wrapper<T> wrapper);
     List<T> selectOne(Wrapper<T> wrapper);
     List<T> selectById(Serializable id);
+
+    Page<T> selectByPage(Page<T> page,Wrapper<T> wrapper);
 
     int delete(Wrapper<T> wrapper);
 

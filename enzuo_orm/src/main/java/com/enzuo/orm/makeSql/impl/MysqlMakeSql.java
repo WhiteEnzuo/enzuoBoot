@@ -4,6 +4,7 @@ import com.enzuo.ioc.bean.utils.ObjectUtils;
 import com.enzuo.orm.annotation.Table;
 import com.enzuo.orm.makeSql.MakeSql;
 import com.enzuo.orm.makeSql.Wrapper;
+import com.enzuo.orm.util.Page;
 import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.Field;
@@ -20,16 +21,13 @@ import java.util.List;
 @Slf4j
 public class MysqlMakeSql implements MakeSql {
     @Override
-    public String select(Class<?> daoClazz, List<String> filter, Wrapper wrapper) {
+    public String select(Class<?> daoClazz, List<String> filter, Wrapper<?> wrapper) {
 
 
         Table table = daoClazz.getAnnotation(Table.class);
-        String tableName;
-        if(ObjectUtils.isStringEmpty(table.value())){
-            tableName=makeName(daoClazz.getSimpleName());
-        }else{
-            tableName=makeName(table.value());
-        }
+        String tableName=getTableName(daoClazz,table);
+
+
         List<String> selectField=new ArrayList<>();
         Field[] declaredFields = daoClazz.getDeclaredFields();
         for (Field declaredField : declaredFields) {
@@ -55,18 +53,23 @@ public class MysqlMakeSql implements MakeSql {
     }
 
     @Override
-    public String update(Object dao, Wrapper wrapper) throws IllegalAccessException {
+    public String selectByPage(Class<?> clazz,List<String> filter, Page<?> page, Wrapper<?> wrapper) {
+        Integer limit = page.getLimit();
+        Integer size = page.getSize();
+        String select = select(clazz, filter, wrapper);
+        select = select.replace(";","");
+        return select + " " + "limit " + limit + "," + size + ";";
+    }
+
+    @Override
+    public String update(Object dao, Wrapper<?> wrapper)  {
         if(ObjectUtils.isNull(dao)){
             throw  new RuntimeException("不能传入null的dao");
         }
         Class<?> daoClazz = dao.getClass();
         Table table = daoClazz.getAnnotation(Table.class);
-        String tableName;
-        if(ObjectUtils.isStringEmpty(table.value())){
-            tableName=makeName(daoClazz.getSimpleName());
-        }else{
-            tableName=makeName(table.value());
-        }
+        String tableName=getTableName(daoClazz,table);
+
 
         Field[] declaredFields = daoClazz.getDeclaredFields();
 
@@ -75,7 +78,14 @@ public class MysqlMakeSql implements MakeSql {
         int length = stringBuilder.length();
         for (Field declaredField : declaredFields) {
             String fieldName = declaredField.getName();
-            Object filed = declaredField.get(dao);
+            Object filed =null;
+            try {
+                filed = declaredField.get(dao);
+
+            }catch (Exception e){
+                log.error(e.getMessage());
+                return "";
+            }
             if(ObjectUtils.isNull(filed)){
                 continue;
             }
@@ -96,18 +106,10 @@ public class MysqlMakeSql implements MakeSql {
     }
 
     @Override
-    public String delete(Object dao, Wrapper wrapper) {
-        if(ObjectUtils.isNull(dao)){
-            throw  new RuntimeException("不能传入null的dao");
-        }
-        Class<?> daoClazz = dao.getClass();
+    public String delete(Class<?> daoClazz, Wrapper<?> wrapper) {
+
         Table table = daoClazz.getAnnotation(Table.class);
-        String tableName;
-        if(ObjectUtils.isStringEmpty(table.value())){
-            tableName=makeName(daoClazz.getSimpleName());
-        }else{
-            tableName=makeName(table.value());
-        }
+        String tableName=getTableName(daoClazz,table);
         StringBuilder stringBuilder  = new StringBuilder();
         stringBuilder.append("delete from ").append(tableName);
         String sql = addWrapper(stringBuilder, wrapper);
@@ -116,25 +118,30 @@ public class MysqlMakeSql implements MakeSql {
     }
 
     @Override
-    public String insert(Object dao) throws IllegalAccessException {
+    public String insert(Object dao) {
         if(ObjectUtils.isNull(dao)){
             throw  new RuntimeException("不能传入null的dao");
         }
         Class<?> daoClazz = dao.getClass();
         Table table = daoClazz.getAnnotation(Table.class);
-        String tableName;
-        if(ObjectUtils.isStringEmpty(table.value())){
-            tableName=makeName(daoClazz.getSimpleName());
-        }else{
-            tableName=makeName(table.value());
-        }
+
+        String tableName=getTableName(daoClazz,table);
+
         StringBuilder stringBuilder  = new StringBuilder();
         stringBuilder.append("insert into ").append(tableName);
         Field[] declaredFields = daoClazz.getDeclaredFields();
         stringBuilder.append("(");
         List<Object> values=new ArrayList<>();
         for (Field declaredField : declaredFields) {
-            Object value = declaredField.get(dao);
+            declaredField.setAccessible(true);
+            Object value=null;
+            try {
+                value = declaredField.get(dao);
+
+            }catch (Exception e){
+                log.error(e.getMessage());
+                return "";
+            }
             if(ObjectUtils.isNull(value)){
                 continue;
             }
@@ -156,12 +163,25 @@ public class MysqlMakeSql implements MakeSql {
         log.info(sql);
         return sql;
     }
-    private String addWrapper(StringBuilder sql , Wrapper wrapper){
+    private String addWrapper(StringBuilder sql , Wrapper<?> wrapper){
 
         return sql.toString();
     }
 
     private String makeName(String name){
         return name;
+    }
+    private String getTableName(Class<?> clazz,Table table){
+        String tableName;
+        if(ObjectUtils.isNull(table)){
+            tableName=clazz.getSimpleName();
+        }else{
+            if(ObjectUtils.isStringEmpty(table.value())){
+                tableName=makeName(clazz.getSimpleName());
+            }else{
+                tableName=makeName(table.value());
+            }
+        }
+        return tableName;
     }
 }

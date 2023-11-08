@@ -1,14 +1,6 @@
 package com.enzuo.ioc.bean;
 
 import com.enzuo.ioc.bean.annotation.*;
-import com.enzuo.ioc.bean.annotation.aop.Aspect;
-import com.enzuo.ioc.bean.annotation.aop.Before;
-import com.enzuo.ioc.bean.application.BootApplication;
-import com.enzuo.ioc.bean.context.impl.RunApplicationContext;
-import com.enzuo.ioc.bean.utils.AnnotationUtils;
-
-import java.util.List;
-import java.util.Optional;
 
 /**
  * @Classname Main
@@ -21,7 +13,7 @@ import java.util.Optional;
 @Application
 public class Main {
     public static void main(String[] args) {
-        BootApplication.run(Main.class,args);
+//        BootApplication.run(Main.class,args);
 
 //        System.out.println(
 //                runApplicationContext

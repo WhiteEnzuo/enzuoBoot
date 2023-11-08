@@ -2,6 +2,7 @@ package com.enzuo.ioc.bean.listener;
 
 import com.enzuo.ioc.bean.context.ApplicationContext;
 import com.enzuo.ioc.bean.env.Environment;
+import com.enzuo.ioc.bean.utils.ObjectUtils;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
@@ -42,6 +43,12 @@ public class ApplicationListeners {
     public void environmentPrepared(Environment environment) {
         for (ApplicationListener applicationListener : list) {
             applicationListener.environmentPrepared(environment);
+            if(ObjectUtils.isNull(environment)){
+                environment=new Environment();
+            }
+            if(ObjectUtils.isStringEmpty(environment.getAddress())){
+                environment.setAddress("0.0.0.0");
+            }
         }
     }
 

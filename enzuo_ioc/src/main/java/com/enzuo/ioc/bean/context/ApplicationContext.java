@@ -48,4 +48,6 @@ public abstract class ApplicationContext {
     public abstract void addExecuteImportClass(Class<?> clazz);
 
     public abstract String[] getArgs();
+    public abstract Object getConfig(String key);
+    public abstract void setConfig(String key,Object value);
 }
