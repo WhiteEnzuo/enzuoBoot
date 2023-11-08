@@ -77,7 +77,9 @@ public class BootApplication {
     }
 
     private void runServer(ApplicationListeners applicationListeners) {
-
+        MVCServlet mvcServlet = new MVCServlet(runApplicationContext);
+        runApplicationContext.getBeanFactory().registerSingletonBean("mvcServlet",mvcServlet);
+        HttpContext.httpServletList.add(mvcServlet);
         new Thread(() -> {
             if (ObjectUtils.isNull(httpServerSocket)) {
                 httpServerSocket = new HttpServerSocket(8080);
@@ -89,9 +91,6 @@ public class BootApplication {
     }
     private void environmentPrepared(ApplicationListeners applicationListeners,Environment environment){
         applicationListeners.environmentPrepared(environment);
-        MVCServlet mvcServlet = new MVCServlet(runApplicationContext);
-        runApplicationContext.getBeanFactory().registerSingletonBean("mvcServlet",mvcServlet);
-        HttpContext.httpServletList.add(mvcServlet);
         switch (environment.getHttpContext()){
             case "Servlet":
                 int port = environment.getPort();

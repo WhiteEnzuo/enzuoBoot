@@ -81,7 +81,7 @@ public class ControllerContext {
             GetMapping methodGetMapping = declaredMethod.getAnnotation(GetMapping.class);
             if(ObjectUtils.isNotNull(methodGetMapping)){
                 StringBuilder newUrlStringBuilder = new StringBuilder(urlStringBuilder.toString());
-                makeUrl(HttpMethodsEnum.GET.getMethods(),  methodGetMapping.value(),newUrlStringBuilder);
+                newUrlStringBuilder.append(makeUrl(HttpMethodsEnum.GET.getMethods(),  methodGetMapping.value(),newUrlStringBuilder));
                 MethodObject methodObject = new MethodObject();
                 methodObject.setMethod(declaredMethod);
                 methodObject.setUrl(newUrlStringBuilder.toString());

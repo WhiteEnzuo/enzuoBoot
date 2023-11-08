@@ -8,12 +8,12 @@ package com.enzuo.mvc.enums;
  * @Created by Enzuo
  */
 public enum HttpMethodsEnum {
-    GET("get"),
-    POST("post"),
-    PUT("put"),
-    DELETE("delete"),
-    HEAD("head"),
-    OPTIONS("options");
+    GET("GET"),
+    POST("POST"),
+    PUT("PUT"),
+    DELETE("DELETE"),
+    HEAD("HEAD"),
+    OPTIONS("OPTIONS");
 
     private final String methods;
     HttpMethodsEnum(String methods){

@@ -3,17 +3,17 @@ package com.enzuo.mvc.model;
 import com.alibaba.fastjson.JSON;
 import com.enzuo.ioc.bean.utils.ObjectUtils;
 import com.enzuo.mvc.model.result.Result;
+import com.enzuo.mvc.redirect.RedirectHtml;
 import com.enzuo.web.http.handler.HttpContext;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
+import java.io.*;
+import java.net.URL;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 
 /**
  * @Classname ModelAndView
@@ -24,8 +24,8 @@ import java.nio.charset.StandardCharsets;
  */
 @Slf4j
 public abstract class ModelAndView {
-    public String readHtml(String path, Charset... encoders) {
-        File file = new File(path);
+
+    public String readHtml(Class<?> clazz, RedirectHtml redirectHtml, Charset... encoders) {
         String html;
         Charset encoder;
         if (encoders.length > 0) {
@@ -33,12 +33,14 @@ public abstract class ModelAndView {
         } else {
             encoder = StandardCharsets.UTF_8;
         }
-        try {
-            FileInputStream fileInputStream = new FileInputStream(file);
-            byte[] bytes = fileInputStream.readAllBytes();
 
+        try {
+            InputStream htmlStream = clazz.getResourceAsStream(File.separator + redirectHtml.getRedirectHtmlPath());
+            byte[] bytes = htmlStream.readAllBytes();
             ByteBuf byteBuf = Unpooled.copiedBuffer(bytes);
             html = byteBuf.toString(encoder);
+            html=makeHtml(redirectHtml.getData(),html);
+
         } catch (IOException e) {
             log.error(e.getMessage());
             html = notFoundHtml(encoder);
@@ -82,5 +84,10 @@ public abstract class ModelAndView {
         Object json = JSON.toJSON(result);
         return json.toString();
     }
-
+    private String makeHtml(Map<String ,Object> data,String html){
+        for (String key : data.keySet()) {
+            html = html.replace("{{"+key+"}}",data.get(key).toString());
+        }
+        return html;
+    }
 }

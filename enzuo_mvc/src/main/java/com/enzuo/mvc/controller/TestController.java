@@ -1,6 +1,9 @@
 package com.enzuo.mvc.controller;
 
 import com.enzuo.mvc.annotation.Controller;
+import com.enzuo.mvc.annotation.GetMapping;
+import com.enzuo.mvc.redirect.RedirectHtml;
+import lombok.Data;
 
 /**
  * @Classname TestController
@@ -11,5 +14,11 @@ import com.enzuo.mvc.annotation.Controller;
  */
 @Controller
 public class TestController {
-
+    @GetMapping("/test")
+    public RedirectHtml Test(){
+        RedirectHtml redirectHtml = new RedirectHtml("123.html");
+        redirectHtml.putDataByKey("enzuo","enzuo");
+        return redirectHtml;
+    }
 }
+

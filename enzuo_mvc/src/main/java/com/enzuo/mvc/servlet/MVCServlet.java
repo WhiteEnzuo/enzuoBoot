@@ -8,6 +8,7 @@ import com.enzuo.mvc.interceptor.WebMvcConfigurerAdapter;
 import com.enzuo.mvc.model.MethodObject;
 import com.enzuo.mvc.model.ModelAndView;
 import com.enzuo.mvc.model.impl.DefaultModelAndView;
+import com.enzuo.mvc.redirect.RedirectHtml;
 import com.enzuo.web.http.annotation.WebServlet;
 import com.enzuo.web.http.handler.HttpServlet;
 import com.enzuo.web.http.handler.request.Request;
@@ -34,8 +35,9 @@ import java.util.List;
  * @Date 2023/10/15 16:41
  * @Created by Enzuo
  */
-@WebServlet("/")
+@WebServlet
 @Slf4j
+
 public class MVCServlet extends HttpServlet {
     private ApplicationContext context;
     private ControllerContext controllerContext;
@@ -100,8 +102,8 @@ public class MVCServlet extends HttpServlet {
         try {
             preHandle(request, response, null);
             Object invoke = method.invoke(methods.getObject(), args.toArray());
-            if (invoke.getClass().equals(String.class)) {
-                String html = modelAndView.readHtml((String) invoke);
+            if (invoke.getClass().equals(RedirectHtml.class)) {
+                String html = modelAndView.readHtml(context.getClazz(),((RedirectHtml) invoke));
                 postHandle(request,response,null,modelAndView);
                 response.write(html);
                 afterCompletion(request,response,null,null);
